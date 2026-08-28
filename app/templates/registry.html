@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ detail.row.summary.name }} - Pulp UI{% endblock %}
+{% block content %}
+  <p><a href="{{ url_for('index') }}">&larr; Distributions</a></p>
+  <h1>{{ detail.row.summary.name }}</h1>
+  <dl class="meta">
+    <dt>Content type</dt><dd><span class="badge badge-type">{{ detail.row.summary.content_type }}</span></dd>
+    <dt>Base path</dt><dd><code>{{ detail.row.summary.base_path }}</code></dd>
+    <dt>Remote</dt><dd><code>{{ detail.row.remote_url or "-" }}</code></dd>
+    <dt>Status</dt>
+    <dd>
+      {% if detail.row.badge %}
+        <span class="badge badge-status badge-{{ detail.row.badge.kind }}">{{ detail.row.badge.label }}</span>
+      {% else %}
+        <span class="empty">no remote</span>
+      {% endif %}
+    </dd>
+    <dt>Distribution URL</dt>
+    <dd>
+      <code>{{ detail.row.summary.base_url or "-" }}</code>
+      {% if detail.row.summary.base_url %}
+        <button type="button" class="copy-btn" data-copy="{{ detail.row.summary.base_url }}">Copy</button>
+      {% endif %}
+    </dd>
+  </dl>
+
+  <h2>Cached images ({{ "{:,}".format(detail.cached_images | length) }})</h2>
+  {% if not detail.cached_images %}
+    <p class="empty">No images have been pulled through this cache yet.</p>
+  {% else %}
+    <input type="search" id="content-search" class="search-box" placeholder="Search cached images...">
+    <table id="content-table">
+      <thead><tr><th>Image</th><th>Registry path</th></tr></thead>
+      <tbody>
+        {% for image in detail.cached_images %}
+          <tr>
+            <td>{{ image.name }}</td>
+            <td><code>{{ image.registry_path }}</code></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="empty" id="content-no-results" hidden>No cached images match your search.</p>
+  {% endif %}
+{% endblock %}

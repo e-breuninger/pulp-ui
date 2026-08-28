@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Status - Pulp UI{% endblock %}
+{% block content %}
+  <h1>Status</h1>
+  <p class="intro">
+    Live from Pulp's own <code>/pulp/api/v3/status/</code> endpoint.
+  </p>
+
+  <dl class="meta">
+    <dt>Database</dt>
+    <dd>
+      <span class="badge badge-status badge-{{ 'ok' if status.database_connected else 'unreachable' }}">
+        {{ "Connected" if status.database_connected else "Disconnected" }}
+      </span>
+    </dd>
+    <dt>Redis</dt>
+    <dd>
+      <span class="badge badge-status badge-{{ 'ok' if status.redis_connected else 'unreachable' }}">
+        {{ "Connected" if status.redis_connected else "Disconnected" }}
+      </span>
+    </dd>
+    {% if status.storage_used is not none %}
+      <dt>Storage used</dt><dd>{{ status.storage_used | filesizeformat(true) }}</dd>
+    {% endif %}
+    {% if status.content_origin %}
+      <dt>Content origin</dt><dd><code>{{ status.content_origin }}</code></dd>
+    {% endif %}
+  </dl>
+
+  <h2>Pods</h2>
+  <table>
+    <thead>
+      <tr><th>Tier</th><th>Pods</th><th>Processes</th><th>Names</th></tr>
+    </thead>
+    <tbody>
+      {% for tier in status.tiers %}
+        <tr>
+          <td>{{ tier.name }}</td>
+          <td>{{ tier.pods | length }}</td>
+          <td>{{ tier.processes }}</td>
+          <td>
+            {% for pod in tier.pods %}<div><code>{{ pod }}</code></div>{% else %}
+            <span class="empty">none online</span>{% endfor %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Versions ({{ status.versions | length }})</h2>
+  {% if not status.versions %}
+    <p class="empty">Pulp reported no component versions.</p>
+  {% else %}
+    <table>
+      <thead>
+        <tr><th>Component</th><th>Package</th><th>Version</th></tr>
+      </thead>
+      <tbody>
+        {% for version in status.versions %}
+          <tr>
+            <td>{{ version.component }}</td>
+            <td><code>{{ version.package }}</code></td>
+            <td>{{ version.version }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+{% endblock %}

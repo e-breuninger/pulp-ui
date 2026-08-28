@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Distributions - Pulp UI{% endblock %}
+{% block content %}
+<h1>Distributions</h1>
+<p class="intro">
+  Pulp fetches a package from its upstream the first time someone asks for it, then serves it locally from then on.
+</p>
+{% if not entries %}
+<p class="empty">No distributions found.</p>
+{% else %}
+<div class="toolbar">
+  <input type="search" id="distribution-search" class="search-box"
+    placeholder="Search by name, base path, content type, or URL..." autofocus />
+  <select id="distribution-type-filter" class="type-filter">
+    <option value="">All types</option>
+    {% for content_type in entries | map(attribute="content_type") | unique | sort %}
+    <option value="{{ content_type }}">{{ content_type }}</option>
+    {% endfor %}
+  </select>
+</div>
+<table id="distribution-table">
+  <thead>
+    <tr>
+      <th>Content type</th>
+      <th>Distributions</th>
+      <th>Cached</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for entry in entries %}
+    <tr data-type="{{ entry.content_type }}" data-search="{{ entry.search_text }}">
+      <td><span class="badge badge-type">{{ entry.content_type }}</span></td>
+      <td>
+        {# Only OCI keeps a page per distribution; the rest share one per content type. #}
+        <a href="{% if entry.is_oci %}{{ url_for('registry_detail',
+                    plugin_name=entry.distributions[0].plugin_name,
+                    pulp_id=entry.distributions[0].pulp_id) }}{% else %}{{
+                    url_for('content_type_detail', content_type=entry.content_type) }}{% endif %}">{{
+          entry.distributions | map(attribute="name") | join(", ") }}</a>
+      </td>
+      {# Raw value for sorting: the displayed one is grouped, and "1,000" would
+      otherwise sort as 1. -1 keeps unknown counts below zero. #}
+      <td class="numeric" data-sort="{{ entry.cached_count if entry.cached_count is not none else -1 }}">
+        {{ "{:,}".format(entry.cached_count) if entry.cached_count is not none else "-" }}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="empty" id="distribution-no-results" hidden>Nothing matches your search.</p>
+{% endif %}
+{% endblock %}

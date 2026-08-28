@@ -1,0 +1,141 @@
+name: Release
+
+# Every push to main is considered for a release. commitizen decides from the
+# conventional-commit types since the last tag whether there is one: feat bumps
+# the minor, fix the patch, a breaking change the major. Anything else (docs,
+# chore, ci, refactor, test) publishes an edge image and nothing more.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Two releases racing would fight over the tag and the version in main.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bump:
+    # Two guards:
+    #  - Forks would otherwise version, tag and release into their own namespace
+    #    the moment their owner enables Actions, including on a plain sync from
+    #    upstream. Nothing here can reach this repo, it is just noise for them.
+    #  - The bot's own bump commit must not start another release. Pushes made
+    #    with GITHUB_TOKEN don't trigger workflows anyway; this also covers a PAT.
+    if: >-
+      ${{ !github.event.repository.fork
+          && !startsWith(github.event.head_commit.message || '', 'bump:') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      released: ${{ steps.bump.outputs.released }}
+      version: ${{ steps.bump.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # cz needs the tags and the full history to work out the increment.
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - run: uv sync --frozen
+
+      - name: Configure the committer
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump the version and update the changelog
+        id: bump
+        run: |
+          set +e
+          uv run cz bump --yes --changelog
+          code=$?
+          set -e
+          case "${code}" in
+            0) ;;
+            3|21)
+              # 3: no commits since the last tag. 21: commits landed, but none
+              # of a type that warrants a release.
+              echo "released=false" >> "$GITHUB_OUTPUT"
+              echo "No releasable commits since the last tag." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+              ;;
+            *) exit "${code}" ;;
+          esac
+
+          version="$(uv run cz version --project)"
+          echo "released=true" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Releasing v${version}." >> "$GITHUB_STEP_SUMMARY"
+
+          # The tag is pushed explicitly rather than via --follow-tags, so this
+          # keeps working even if annotated_tag is ever turned off.
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "v${version}"
+
+  publish:
+    needs: bump
+    # Always publishes: the release build when there is one, edge otherwise.
+    # A reusable workflow only inherits what the caller grants, so the registry
+    # and signing scopes have to be widened here.
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: ./.github/workflows/publish.yml
+    with:
+      version: ${{ needs.bump.outputs.released == 'true' && needs.bump.outputs.version || '' }}
+      ref: ${{ needs.bump.outputs.released == 'true' && format('v{0}', needs.bump.outputs.version) || github.sha }}
+    secrets: inherit
+
+  github-release:
+    needs: [bump, publish]
+    if: needs.bump.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: v${{ needs.bump.outputs.version }}
+
+      - name: Assemble the release notes
+        env:
+          VERSION: ${{ needs.bump.outputs.version }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
+          IMAGE: ${{ needs.publish.outputs.image }}
+        run: |
+          # The section commitizen just wrote, so the release notes and the
+          # changelog can't drift apart.
+          awk -v ver="## v${VERSION}" '
+            $0 == ver || index($0, ver " ") == 1 { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+
+          {
+            echo "### Container image"
+            echo
+            echo "\`\`\`"
+            echo "docker pull ${IMAGE}:${VERSION}"
+            echo "\`\`\`"
+            echo
+            echo "Digest: \`${DIGEST}\`"
+          } >> notes.md
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.bump.outputs.version }}
+        run: |
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --notes-file notes.md \
+            --verify-tag
