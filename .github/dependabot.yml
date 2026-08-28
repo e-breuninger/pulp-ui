@@ -1,0 +1,37 @@
+version: 2
+updates:
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    # Runtime deps reach users in the image, so they release a patch. Dev-only
+    # churn is chore: real, but nothing a user of the image can observe.
+    commit-message:
+      prefix: fix
+      prefix-development: chore
+      include: scope
+    groups:
+      dev-dependencies:
+        dependency-type: development
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    # Base image updates are what ship CVE fixes; they deserve a release.
+    commit-message:
+      prefix: fix
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # CI-only: nothing in the published artifact changes.
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      docker-actions:
+        patterns:
+          - "docker/*"

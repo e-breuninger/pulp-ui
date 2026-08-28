@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Pulp UI{% endblock %}</title>
+  {% set logo_src = logo_url or url_for('static', path='pulp-logo.png') %}
+  <link rel="icon" href="{{ logo_src }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+  {% if extra_css_url %}
+  {# Last, so a deployment's rules win over the bundled ones. #}
+  <link rel="stylesheet" href="{{ extra_css_url }}">
+  {% endif %}
+  <script>
+    // Runs before paint (not deferred) so the page never flashes the wrong theme.
+    (function () {
+      var stored = localStorage.getItem("theme");
+      var dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.dataset.theme = stored || (dark ? "dark" : "light");
+    })();
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('index') }}">
+      {# The intrinsic size only matches the bundled logo; a custom one is sized by CSS alone. #}
+      <img src="{{ logo_src }}" alt=""{% if not logo_url %} width="453" height="550"{% endif %}>
+      Pulp UI
+    </a>
+    <nav>
+      <a href="{{ url_for('index') }}">Distributions</a>
+      <a href="{{ url_for('status') }}">Status</a>
+    </nav>
+    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+      <span aria-hidden="true">&#9788;</span>
+    </button>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  {% include "footer.html" %}
+  <script src="{{ url_for('static', path='app.js') }}" defer></script>
+</body>
+</html>

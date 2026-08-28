@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ detail.content_type }} - Pulp UI{% endblock %}
+{% block content %}
+  <p><a href="{{ url_for('index') }}">&larr; Distributions</a></p>
+  <h1>{{ detail.content_type }}</h1>
+  <p class="intro">
+    Pulp keeps one cache per content type, not one per distribution, so every distribution below serves the same
+    packages - only the URL you point your tooling at differs.
+  </p>
+
+  <h2>Distributions and remotes</h2>
+  <table>
+    <colgroup>
+      <col class="col-md"><col><col><col class="col-sm">
+    </colgroup>
+    <thead>
+      <tr><th>Name</th><th>Distribution URL</th><th>Remote</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      {% for distribution in detail.distributions %}
+        <tr>
+          <td>{{ distribution.summary.name }}</td>
+          <td>
+            <div class="url-cell">
+              <code>{{ distribution.summary.base_url or "-" }}</code>
+              {% if distribution.summary.base_url %}
+                <button type="button" class="copy-btn" data-copy="{{ distribution.summary.base_url }}">Copy</button>
+              {% endif %}
+            </div>
+          </td>
+          <td><code>{{ distribution.remote_url or "-" }}</code></td>
+          <td>
+            {% if distribution.badge %}
+              <span class="badge badge-status badge-{{ distribution.badge.kind }}">{{ distribution.badge.label }}</span>
+            {% else %}
+              <span class="empty">no remote</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Cached content ({{ "{:,}".format(detail.total_items) }})</h2>
+  {% if detail.empty_reason %}
+    <p class="empty">{{ detail.empty_reason }}</p>
+  {% else %}
+    {% if detail.content_items | length < detail.total_items %}
+      <p class="notice">
+        Showing (and searching) the first {{ "{:,}".format(detail.content_items | length) }} of them.
+      </p>
+    {% endif %}
+    <input type="search" id="content-search" class="search-box" placeholder="Search cached content...">
+    <table id="content-table">
+      <colgroup>
+        {% for column in detail.content_columns %}
+          <col{{ ' class="col-sm"' | safe if column == "Version" }}>
+        {% endfor %}
+      </colgroup>
+      <thead>
+        <tr>{% for column in detail.content_columns %}<th>{{ column }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for item in detail.content_items %}
+          <tr>
+            {% for column in detail.content_columns %}<td>{{ item.get(column, "") }}</td>{% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="empty" id="content-no-results" hidden>No cached content matches your search.</p>
+  {% endif %}
+{% endblock %}

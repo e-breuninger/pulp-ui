@@ -1,0 +1,4 @@
+---
+config:
+  MD013: false  # Long lines are unavoidable in the config table and in URLs.
+  MD033: false  # The README shows raw HTML snippets for the custom footer.

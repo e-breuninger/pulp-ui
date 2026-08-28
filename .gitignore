@@ -1,0 +1,9 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Injected by the code pod as a read-only mount; not part of this project.
+AGENTS.md
