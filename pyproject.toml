@@ -1,6 +1,6 @@
 [project]
 name = "pulp-ui"
-version = "0.1.0"
+version = "0.1.1"
 description = "A small, read-only web UI for browsing a Pulp server's distributions and content."
 readme = "README.md"
 license = "MIT"
